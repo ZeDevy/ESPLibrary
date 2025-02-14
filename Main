@@ -5,35 +5,124 @@ end
 local espCode = [[
 local ESP = {}
 
-ESP.Boxes = {}
-ESP.Enabled = true
+ESP.Players = {}
+ESP.Enabled = false
 ESP.Color = Color3.new(1, 0, 0)
 
-local function DrawBox(player)
+ESP.ShowBoxes = false
+ESP.ShowTracers = false
+ESP.ShowNames = false
+ESP.ShowDistance = false
+ESP.ShowHealth = { Enabled = false, Position = "Left" }
+
+ESP.TracerStart = "Bottom"
+
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function CreateDrawing(type, properties)
+    local obj = Drawing.new(type)
+    for i, v in pairs(properties) do
+        obj[i] = v
+    end
+    return obj
+end
+
+local function GetTracerStart()
+    local screenSize = Camera.ViewportSize
+    if ESP.TracerStart == "Top" then
+        return Vector2.new(screenSize.X / 2, 0)
+    elseif ESP.TracerStart == "Middle" then
+        return Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+    else
+        return Vector2.new(screenSize.X / 2, screenSize.Y)
+    end
+end
+
+local function DrawESP(player)
     if not ESP.Enabled then return end
     local char = player.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
+    if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") then
         local hrp = char.HumanoidRootPart
-        local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+        local humanoid = char.Humanoid
+        local head = char:FindFirstChild("Head")
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+        local headPos, _ = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+        local footPos, _ = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 2.5, 0))
+
         if onScreen then
-            local box = Drawing.new("Square")
-            box.Size = Vector2.new(50, 100)
-            box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 50)
-            box.Color = ESP.Color
-            box.Visible = true
-            table.insert(ESP.Boxes, box)
+            local boxSize = Vector2.new(100, 150)
+            local boxPos = Vector2.new(screenPos.X - boxSize.X / 2, screenPos.Y - boxSize.Y / 2)
+
+            local box = ESP.ShowBoxes and CreateDrawing("Square", {
+                Size = boxSize,
+                Position = boxPos,
+                Color = ESP.Color,
+                Thickness = 1,
+                Visible = true
+            }) or nil
+
+            local tracer = ESP.ShowTracers and CreateDrawing("Line", {
+                From = GetTracerStart(),
+                To = Vector2.new(screenPos.X, screenPos.Y + boxSize.Y / 2),
+                Color = ESP.Color,
+                Thickness = 1,
+                Visible = true
+            }) or nil
+
+            local nameTag = ESP.ShowNames and CreateDrawing("Text", {
+                Text = player.Name,
+                Position = Vector2.new(screenPos.X - 30, screenPos.Y - 50),
+                Color = ESP.Color,
+                Size = 16,
+                Center = true,
+                Visible = true
+            }) or nil
+
+            local distance = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
+            local distanceTag = ESP.ShowDistance and CreateDrawing("Text", {
+                Text = "[" .. distance .. "m]",
+                Position = Vector2.new(screenPos.X, screenPos.Y + 55),
+                Color = ESP.Color,
+                Size = 14,
+                Center = true,
+                Visible = true
+            }) or nil
+
+            local healthBar = nil
+            if ESP.ShowHealth.Enabled then
+                local healthPercent = humanoid.Health / humanoid.MaxHealth
+                local healthColor = Color3.new(1 - healthPercent, healthPercent, 0)
+                local barX = (ESP.ShowHealth.Position == "Left") and (boxPos.X - 6) or (boxPos.X + boxSize.X + 2)
+                healthBar = CreateDrawing("Line", {
+                    From = Vector2.new(barX, boxPos.Y + boxSize.Y),
+                    To = Vector2.new(barX, boxPos.Y + boxSize.Y - (boxSize.Y * healthPercent)),
+                    Color = healthColor,
+                    Thickness = 2,
+                    Visible = true
+                })
+            end
+
+            table.insert(ESP.Players, { Box = box, Tracer = tracer, NameTag = nameTag, Distance = distanceTag, HealthBar = healthBar })
         end
     end
 end
 
 function ESP:Enable()
     ESP.Enabled = true
-    game:GetService("RunService").RenderStepped:Connect(function()
-        for _, v in ipairs(ESP.Boxes) do v:Remove() end
-        ESP.Boxes = {}
-        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-            if player ~= game.Players.LocalPlayer then
-                DrawBox(player)
+    RunService.RenderStepped:Connect(function()
+        for _, espObj in ipairs(ESP.Players) do
+            for _, v in pairs(espObj) do
+                if v then v:Remove() end
+            end
+        end
+        ESP.Players = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                DrawESP(player)
             end
         end
     end)
@@ -41,8 +130,61 @@ end
 
 function ESP:Disable()
     ESP.Enabled = false
-    for _, v in ipairs(ESP.Boxes) do v:Remove() end
-    ESP.Boxes = {}
+    for _, espObj in ipairs(ESP.Players) do
+        for _, v in pairs(espObj) do
+            if v then v:Remove() end
+        end
+    end
+    ESP.Players = {}
+end
+
+function ESP:EnableBoxes()
+    ESP.ShowBoxes = true
+end
+
+function ESP:DisableBoxes()
+    ESP.ShowBoxes = false
+end
+
+function ESP:EnableTracers()
+    ESP.ShowTracers = true
+end
+
+function ESP:DisableTracers()
+    ESP.ShowTracers = false
+end
+
+function ESP:SetTracerStart(position)
+    if position == "Top" or position == "Middle" or position == "Bottom" then
+        ESP.TracerStart = position
+    end
+end
+
+function ESP:EnableNames()
+    ESP.ShowNames = true
+end
+
+function ESP:DisableNames()
+    ESP.ShowNames = false
+end
+
+function ESP:EnableDistance()
+    ESP.ShowDistance = true
+end
+
+function ESP:DisableDistance()
+    ESP.ShowDistance = false
+end
+
+function ESP:EnableHealth(position)
+    ESP.ShowHealth.Enabled = true
+    if position == "Left" or position == "Right" then
+        ESP.ShowHealth.Position = position
+    end
+end
+
+function ESP:DisableHealth()
+    ESP.ShowHealth.Enabled = false
 end
 
 return ESP
