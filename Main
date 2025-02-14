@@ -1,0 +1,51 @@
+if not isfolder("EspLibrary") then
+    makefolder("EspLibrary")
+end
+
+local espCode = [[
+local ESP = {}
+
+ESP.Boxes = {}
+ESP.Enabled = true
+ESP.Color = Color3.new(1, 0, 0) -- Red
+
+local function DrawBox(player)
+    if not ESP.Enabled then return end
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
+        local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+        if onScreen then
+            local box = Drawing.new("Square")
+            box.Size = Vector2.new(50, 100)
+            box.Position = Vector2.new(screenPos.X - 25, screenPos.Y - 50)
+            box.Color = ESP.Color
+            box.Visible = true
+            table.insert(ESP.Boxes, box)
+        end
+    end
+end
+
+function ESP:Enable()
+    ESP.Enabled = true
+    game:GetService("RunService").RenderStepped:Connect(function()
+        for _, v in ipairs(ESP.Boxes) do v:Remove() end
+        ESP.Boxes = {}
+        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= game.Players.LocalPlayer then
+                DrawBox(player)
+            end
+        end
+    end)
+end
+
+function ESP:Disable()
+    ESP.Enabled = false
+    for _, v in ipairs(ESP.Boxes) do v:Remove() end
+    ESP.Boxes = {}
+end
+
+return ESP
+]]
+
+writefile("EspLibrary/ESP.lua", espCode)
