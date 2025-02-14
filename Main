@@ -1,34 +1,159 @@
-local ESP = {} if getgenv().ESP then getgenv().ESP:Disable() end getgenv().ESP = ESP 
+local ESP = {} 
+if getgenv().ESP then 
+    getgenv().ESP:Disable() 
+end 
+getgenv().ESP = ESP 
 
-ESP.Settings = {Enabled = false, Tracers = true, Boxes = true, HealthBars = true, Position = "Middle", BoxColor = Color3.fromRGB(255, 255, 255), TracerColor = Color3.fromRGB(255, 255, 255), HealthBarColor = Color3.fromRGB(0, 255, 0)} 
-local p=game:GetService("Players") local rs=game:GetService("RunService") local cam=workspace.CurrentCamera
+ESP.Settings = {
+    Enabled = false, 
+    Tracers = true, 
+    Boxes = true, 
+    HealthBars = true, 
+    Position = "Middle", 
+    BoxColor = Color3.fromRGB(255, 255, 255), 
+    TracerColor = Color3.fromRGB(255, 255, 255), 
+    HealthBarColor = Color3.fromRGB(0, 255, 0)
+} 
 
+local rs = game:GetService("RunService")
+local cam = workspace.CurrentCamera
 local ESPObjects = {}
+
 local function ClearESP()
     for _, v in pairs(ESPObjects) do
-        if v then v:Remove() end
+        if v then 
+            v:Remove() 
+        end
     end
     ESPObjects = {}
 end
 
-local function CreateESP(plr) if plr == p.LocalPlayer then return end local txt = Drawing.new("Text") local tracer = Drawing.new("Line") local box = Drawing.new("Square") local healthBar = Drawing.new("Line")
-table.insert(ESPObjects, txt) table.insert(ESPObjects, tracer) table.insert(ESPObjects, box) table.insert(ESPObjects, healthBar)
-
-rs.RenderStepped:Connect(function() if not ESP.Settings.Enabled then txt.Visible = false tracer.Visible = false box.Visible = false healthBar.Visible = false return end local c = workspace:FindFirstChild(plr.Name) if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("Humanoid") then local hrp = c:FindFirstChild("HumanoidRootPart") local h = c:FindFirstChild("Humanoid") local head = c:FindFirstChild("Head") if not hrp or not h then return end local pos, onscreen = cam:WorldToViewportPoint(hrp.Position) local headpos = cam:WorldToViewportPoint(head.Position) local footpos = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
-
-local boxHeight = math.abs(footpos.Y - headpos.Y) local boxWidth = boxHeight / 2 local yOffset = (ESP.Settings.Position == "Middle" and -boxHeight / 2) or (ESP.Settings.Position == "Top" and -boxHeight) or 0
-
-txt.Size = 14 txt.Center = true txt.Outline = true txt.Color = Color3.fromRGB(255, 255, 255) txt.Transparency = 0.7 txt.Font = Drawing.Fonts.UI tracer.Thickness = 1 tracer.Color = ESP.Settings.TracerColor box.Thickness = 1 box.Color = ESP.Settings.BoxColor box.Filled = false healthBar.Thickness = 2 healthBar.Color = ESP.Settings.HealthBarColor
-
-if onscreen then local dist = (p.LocalPlayer.Character and p.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and (hrp.Position - p.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude or 0) txt.Position = Vector2.new(math.floor(pos.X), math.floor(pos.Y - 25)) txt.Text = "(" .. math.floor(dist) .. ") " .. plr.Name .. " [" .. math.floor(h.Health) .. "/" .. math.floor(h.MaxHealth) .. "]"
-tracer.From = Vector2.new(math.floor(cam.ViewportSize.X / 2), math.floor(cam.ViewportSize.Y)) tracer.To = Vector2.new(math.floor(pos.X), math.floor(pos.Y + 5))
-box.Position = Vector2.new(math.floor(pos.X - boxWidth / 2), math.floor(headpos.Y + yOffset)) box.Size = Vector2.new(math.floor(boxWidth), math.floor(boxHeight))
-healthBar.From = Vector2.new(math.floor(pos.X - boxWidth / 2 - 4), math.floor(headpos.Y + boxHeight)) healthBar.To = Vector2.new(math.floor(pos.X - boxWidth / 2 - 4), math.floor(headpos.Y + boxHeight * (h.Health / h.MaxHealth)))
-
-txt.Visible = ESP.Settings.Enabled tracer.Visible = ESP.Settings.Tracers box.Visible = ESP.Settings.Boxes healthBar.Visible = ESP.Settings.HealthBars else txt.Visible = false tracer.Visible = false box.Visible = false healthBar.Visible = false end else txt.Visible = false tracer.Visible = false box.Visible = false healthBar.Visible = false end end)
-p.PlayerRemoving:Connect(function(x) if x == plr then txt:Remove() tracer:Remove() box:Remove() healthBar:Remove() end end)
+local function GetPlayers()
+    local players = {}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj:FindFirstChild("HumanoidRootPart") and obj:FindFirstChild("Humanoid") then
+            table.insert(players, obj)
+        end
+    end
+    return players
 end
 
-function ESP:Enable() ClearESP() ESP.Settings.Enabled = true for _, v in pairs(p:GetPlayers()) do CreateESP(v) end p.PlayerAdded:Connect(function(v) CreateESP(v) end) end function ESP:Disable() ESP.Settings.Enabled = false ClearESP() end function ESP:Tracers(state) ESP.Settings.Tracers = state end function ESP:Boxes(state) ESP.Settings.Boxes = state end function ESP:HealthBars(state) ESP.Settings.HealthBars = state end function ESP:SetBoxColor(c) ESP.Settings.BoxColor = c end function ESP:SetTracerColor(c) ESP.Settings.TracerColor = c end function ESP:SetHealthBarColor(c) ESP.Settings.HealthBarColor = c end function ESP:SetPosition(p) ESP.Settings.Position = p end
+local function CreateESP(plr)
+    local txt = Drawing.new("Text") 
+    local tracer = Drawing.new("Line") 
+    local box = Drawing.new("Square") 
+    local healthBar = Drawing.new("Line")
+
+    table.insert(ESPObjects, txt) 
+    table.insert(ESPObjects, tracer) 
+    table.insert(ESPObjects, box) 
+    table.insert(ESPObjects, healthBar)
+
+    rs.RenderStepped:Connect(function()
+        if not ESP.Settings.Enabled then
+            txt.Visible = false
+            tracer.Visible = false
+            box.Visible = false
+            healthBar.Visible = false
+            return
+        end
+        
+        if plr and plr:FindFirstChild("HumanoidRootPart") and plr:FindFirstChild("Humanoid") then
+            local hrp = plr:FindFirstChild("HumanoidRootPart")
+            local h = plr:FindFirstChild("Humanoid")
+            local head = plr:FindFirstChild("Head")
+
+            if not hrp or not h then return end
+
+            local pos, onscreen = cam:WorldToViewportPoint(hrp.Position)
+            local headpos = cam:WorldToViewportPoint(head.Position)
+            local footpos = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
+            local boxHeight = math.abs(footpos.Y - headpos.Y)
+            local boxWidth = boxHeight / 2
+            local yOffset = (ESP.Settings.Position == "Middle" and -boxHeight / 2) or (ESP.Settings.Position == "Top" and -boxHeight) or 0
+
+            txt.Size = 14
+            txt.Center = true
+            txt.Outline = true
+            txt.Color = Color3.fromRGB(255, 255, 255)
+            txt.Transparency = 0.7
+            txt.Font = Drawing.Fonts.UI
+
+            tracer.Thickness = 1
+            tracer.Color = ESP.Settings.TracerColor
+
+            box.Thickness = 1
+            box.Color = ESP.Settings.BoxColor
+            box.Filled = false
+
+            healthBar.Thickness = 2
+            healthBar.Color = ESP.Settings.HealthBarColor
+
+            if onscreen then
+                local dist = (game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and (hrp.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude or 0)
+                
+                txt.Position = Vector2.new(math.floor(pos.X), math.floor(pos.Y - 25))
+                txt.Text = "(" .. math.floor(dist) .. ") " .. plr.Name .. " [" .. math.floor(h.Health) .. "/" .. math.floor(h.MaxHealth) .. "]"
+
+                tracer.From = Vector2.new(math.floor(cam.ViewportSize.X / 2), math.floor(cam.ViewportSize.Y))
+                tracer.To = Vector2.new(math.floor(pos.X), math.floor(pos.Y + 5))
+
+                box.Position = Vector2.new(math.floor(pos.X - boxWidth / 2), math.floor(headpos.Y + yOffset))
+                box.Size = Vector2.new(math.floor(boxWidth), math.floor(boxHeight))
+
+                healthBar.From = Vector2.new(math.floor(pos.X - boxWidth / 2 - 4), math.floor(headpos.Y + boxHeight))
+                healthBar.To = Vector2.new(math.floor(pos.X - boxWidth / 2 - 4), math.floor(headpos.Y + boxHeight * (h.Health / h.MaxHealth)))
+
+                txt.Visible = ESP.Settings.Enabled
+                tracer.Visible = ESP.Settings.Tracers
+                box.Visible = ESP.Settings.Boxes
+                healthBar.Visible = ESP.Settings.HealthBars
+            else
+                txt.Visible = false
+                tracer.Visible = false
+                box.Visible = false
+                healthBar.Visible = false
+            end
+        else
+            txt.Visible = false
+            tracer.Visible = false
+            box.Visible = false
+            healthBar.Visible = false
+        end
+    end)
+end
+
+function ESP:Enable() 
+    ClearESP() 
+    ESP.Settings.Enabled = true 
+
+    for _, plr in pairs(GetPlayers()) do
+        CreateESP(plr)
+    end
+
+    rs.RenderStepped:Connect(function()
+        if ESP.Settings.Enabled then
+            for _, plr in pairs(GetPlayers()) do
+                if not ESPObjects[plr] then
+                    CreateESP(plr)
+                end
+            end
+        end
+    end)
+end
+
+function ESP:Disable() 
+    ESP.Settings.Enabled = false 
+    ClearESP() 
+end 
+
+function ESP:Tracers(state) ESP.Settings.Tracers = state end 
+function ESP:Boxes(state) ESP.Settings.Boxes = state end 
+function ESP:HealthBars(state) ESP.Settings.HealthBars = state end 
+function ESP:SetBoxColor(c) ESP.Settings.BoxColor = c end 
+function ESP:SetTracerColor(c) ESP.Settings.TracerColor = c end 
+function ESP:SetHealthBarColor(c) ESP.Settings.HealthBarColor = c end 
+function ESP:SetPosition(p) ESP.Settings.Position = p end
 
 return ESP
